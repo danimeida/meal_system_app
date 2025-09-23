@@ -17,8 +17,8 @@ APP_TZ = ZoneInfo("Europe/Bucharest")
 WEEKDAYS_PT = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']
 
 # Janela de validação do quiosque
-WINDOW_BEFORE = timedelta(minutes=60)
-WINDOW_AFTER  = timedelta(minutes=90)
+WINDOW_BEFORE = timedelta(minutes=45)
+WINDOW_AFTER  = timedelta(minutes=105)
 
 def in_window(meal_time, now=None):
     """True se o momento atual estiver dentro da janela de validação da refeição de HOJE."""
@@ -40,9 +40,13 @@ def is_locked(day, meal_time, now=None, hours=48):
 def index():
     return render_template('index.html')
 
+
 @bp.route('/mark', methods=['GET', 'POST'])
 def mark():
+    # obter user_id como já tens...
     user_id = request.args.get('user_id') if request.method == 'GET' else request.form.get('user_id')
+    pin = request.args.get('pin') if request.method == 'GET' else request.form.get('pin')
+
     if not user_id:
         return render_template('index.html', error=None)
     try:
@@ -53,6 +57,11 @@ def mark():
     user = User.query.get(user_id)
     if not user:
         return render_template('index.html', error='Utilizador não existe')
+
+    # ✅ validar PIN antes de mostrar/alterar marcações
+    if not pin or not user.pin_hash or not check_password_hash(user.pin_hash, str(pin)):
+        return render_template('index.html', error='PIN inválido')
+
 
     meals = Meal.query.order_by(Meal.id).all()
 

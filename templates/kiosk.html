@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="card p-4">
-  <h3 class="mb-3">Validação de Refeição (Quiosque)</h3>
+  <h3 class="mb-3">Quiosque</h3>
 
   {% if active_meal %}
     <div class="alert alert-info">
@@ -17,7 +17,7 @@
 
   <form method="post" class="row g-3 align-items-end">
     <div class="col-sm-3">
-      <label class="form-label">Nº utilizador</label>
+      <label class="form-label">Nº OB</label>
       <input required type="number" min="1" class="form-control" name="user_id" autofocus>
     </div>
 

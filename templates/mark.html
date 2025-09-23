@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
-<h3 class="mb-3">Ordem de Batalha: #{{ user_id }}</h3>
-<p class="text-muted">Por defeito estás <strong>inscrito</strong>. Tira a marca para <strong>cancelar</strong>. Refeições a &lt;48h ficam bloqueadas.</p>
+<h3 class="mb-3">Ordem de Batalha: {{ user_id }}</h3>
+<p class="text-muted">Refeições marcadas por defeito. Retira a marca para desmarcar. Refeições a &lt;48h estão bloqueadas.</p>
 
 <form method="post" action="{{ url_for('routes.mark') }}">
   <input type="hidden" name="user_id" value="{{ user_id }}">

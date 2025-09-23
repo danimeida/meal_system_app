@@ -1,10 +1,24 @@
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
 
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.SmallInteger, primary_key=True)
+    pin_hash = db.Column(db.Text, nullable=True)
+    pin_set_at = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
+
+    # helpers (opcional)
+    def set_pin(self, pin: str):
+        self.pin_hash = generate_password_hash(str(pin))
+
+    def check_pin(self, pin: str) -> bool:
+        if not self.pin_hash:
+            return False
+        return check_password_hash(self.pin_hash, str(pin))
+
 
 
 class Meal(db.Model):
