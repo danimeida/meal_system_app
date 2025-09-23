@@ -186,19 +186,19 @@ def mark():
 # ---- QUIOSQUE ----
 
 @bp.route('/kiosk', methods=['GET', 'POST'])
-@login_required  # só admins autenticados
+@login_required
 def kiosk():
     meals = Meal.query.order_by(Meal.id).all()
     result = None
     msg = None
 
-    # Determina refeição “corrente” para mostrar ao operador
-    now_utc = datetime.now(timezone.utc)
-    today = now_utc.date()
+    now_local = datetime.now(APP_TZ)
+    today_local = now_local.date()
 
+    # descobrir refeição ativa (janela aberta agora)
     current_meal = None
     for m in meals:
-        if in_window(m.scheduled_time, now=now_utc):
+        if in_window_for(today_local, m.scheduled_time, now=now_local):
             current_meal = m
             break
 
@@ -208,42 +208,50 @@ def kiosk():
         except (KeyError, ValueError):
             user_id = None
 
-        # Se houver um <select> para forçar a refeição, respeita-o; senão usa a current_meal
-        try:
-            posted_meal_id = int(request.form.get('meal_id') or 0)
-        except ValueError:
-            posted_meal_id = 0
-
-        meal = Meal.query.get(posted_meal_id) if posted_meal_id else current_meal
-
-        if not user_id or not meal:
+        if not user_id:
             result, msg = 'red', 'Dados inválidos.'
+        elif not current_meal:
+            result, msg = 'red', 'Fora da janela de validação no momento.'
         else:
             canceled = Reservation.query.filter_by(
-                user_id=user_id, meal_id=meal.id, date=today
+                user_id=user_id, meal_id=current_meal.id, date=today_local
             ).first() is not None
+
             if canceled:
                 result, msg = 'red', 'Reserva cancelada.'
-            elif not in_window(meal.scheduled_time, now=now_utc):
-                result, msg = 'red', 'Fora da janela de validação.'
             else:
                 existing = Attendance.query.filter_by(
-                    user_id=user_id, meal_id=meal.id, date=today
+                    user_id=user_id, meal_id=current_meal.id, date=today_local
                 ).first()
                 if not existing:
                     try:
-                        db.session.add(Attendance(user_id=user_id, meal_id=meal.id, date=today))
+                        db.session.add(Attendance(
+                            user_id=user_id, meal_id=current_meal.id, date=today_local
+                        ))
                         db.session.commit()
                     except Exception:
                         db.session.rollback()
                         result, msg = 'red', 'Erro ao registar presença.'
-                        return render_template('kiosk.html', meals=meals, result=result, msg=msg,
-                                               current_meal=current_meal, today=today)
+                        return render_template(
+                            'kiosk.html',
+                            meals=meals,
+                            result=result,
+                            msg=msg,
+                            current_meal=current_meal,
+                            current_day=today_local,
+                            now=now_local
+                        )
                 result, msg = 'green', 'Presença registada.'
 
-    return render_template('kiosk.html', meals=meals, result=result, msg=msg,
-                           current_meal=current_meal, today=today)
-
+    return render_template(
+        'kiosk.html',
+        meals=meals,
+        result=result,
+        msg=msg,
+        current_meal=current_meal,
+        current_day=today_local,
+        now=now_local
+    )
 
 # ---- DASHBOARD ADMIN ----
 
