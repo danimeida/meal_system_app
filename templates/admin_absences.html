@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h3 class="mb-0">Faltaram — {{ meal.name }} — {{ day.strftime('%Y-%m-%d') }}</h3>
+  <a class="btn btn-outline-secondary" href="{{ url_for('routes.admin_dashboard', date=day.strftime('%Y-%m-%d')) }}">Voltar</a>
+</div>
+
+<div class="card p-3">
+  {% if absent_users %}
+    <table class="table table-sm">
+      <thead><tr><th>Nº OB</th></tr></thead>
+      <tbody>
+        {% for uid in absent_users %}
+          <tr><td>{{ uid }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="text-muted">Ninguém faltou 🎉</div>
+  {% endif %}
+</div>
+{% endblock %}

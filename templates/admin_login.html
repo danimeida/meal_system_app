@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card p-4 mx-auto" style="max-width:420px">
+  <h3 class="mb-3">Login Administração</h3>
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      <input required class="form-control" name="username" autocomplete="username">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input required type="password" class="form-control" name="password" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary w-100">Entrar</button>
+  </form>
+</div>
+{% endblock %}

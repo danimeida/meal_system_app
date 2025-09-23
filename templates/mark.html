@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3 class="mb-3">Ordem de Batalha: #{{ user_id }}</h3>
+<p class="text-muted">Por defeito estás <strong>inscrito</strong>. Tira a marca para <strong>cancelar</strong>. Refeições a &lt;48h ficam bloqueadas.</p>
+
+<form method="post" action="{{ url_for('routes.mark') }}">
+  <input type="hidden" name="user_id" value="{{ user_id }}">
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle bg-white shadow-sm">
+      <thead>
+        <tr>
+          <th>Data</th>
+          {% for meal in meals %}
+            <th class="meal-col">{{ meal.name }}<br><small class="text-muted">{{ meal.scheduled_time.strftime('%H:%M') }}</small></th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in days %}
+        {% set weekend = d.weekday() >= 5 %}  {# 5=sábado, 6=domingo #}
+        {% set wd = weekdays[d.weekday()] %}
+        <tr class="{% if weekend %}weekend-row{% endif %}">
+          <td class="text-nowrap">
+            {{ d.strftime('%d/%m/%Y') }}
+            <small class="text-muted">({{ wd }})</small>
+          </td>
+          {% for meal in meals %}
+            {% set key = (d, meal.id) %}
+            {% set locked = key in locked_set %}
+            {% set is_canceled = key in canceled_set %}
+            <td class="meal-col {{ 'locked' if locked }}">
+              <div class="form-check d-inline-flex align-items-center gap-2">
+                <input class="form-check-input"
+                      type="checkbox"
+                      name="reservation"
+                      value="{{ d }}_{{ meal.id }}"
+                      id="chk_{{ d }}_{{ meal.id }}"
+                      {% if not is_canceled %}checked{% endif %}
+                      {% if locked %}disabled{% endif %}>
+                {% if locked %}<span class="badge text-bg-secondary badge-locked">bloqueado</span>{% endif %}
+              </div>
+            </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sticky-actions">
+    <button class="btn btn-primary">Guardar alterações</button>
+    <a href="{{ url_for('routes.index') }}" class="btn btn-outline-secondary">Voltar</a>
+  </div>
+</form>
+{% endblock %}
+

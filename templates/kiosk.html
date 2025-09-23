@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card p-4">
+  <h3 class="mb-3">Validação de Refeição (Quiosque)</h3>
+
+  {% if active_meal %}
+    <div class="alert alert-info">
+      <strong>A validar:</strong>
+      {{ active_meal.name }} ({{ active_meal.scheduled_time.strftime('%H:%M') }})
+      — {{ day.strftime('%d/%m/%Y') }}
+    </div>
+  {% else %}
+    <div class="alert alert-warning">
+      Nenhuma refeição a decorrer.
+    </div>
+  {% endif %}
+
+  <form method="post" class="row g-3 align-items-end">
+    <div class="col-sm-3">
+      <label class="form-label">Nº utilizador</label>
+      <input required type="number" min="1" class="form-control" name="user_id" autofocus>
+    </div>
+
+    <div class="col-sm-2">
+      <button class="btn btn-dark w-100" {% if not active_meal %}disabled{% endif %}>
+        Validar
+      </button>
+    </div>
+  </form>
+
+  {% if result %}
+    <div class="mt-4 p-4 text-center rounded {{ 'bg-success text-white' if result=='green' else 'bg-danger text-white' }}" style="font-size:1.5rem; font-weight:700;">
+      {{ msg }}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
