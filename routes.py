@@ -1,79 +1,132 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_required
+from werkzeug.security import check_password_hash
 from models import db, User, Meal, Reservation, Attendance
-from sqlalchemy import func
-from werkzeug.security import generate_password_hash, check_password_hash
 
-
-
-bp = Blueprint('routes', __name__)
-
-# Timezone da aplicação (Bucareste)
+# Timezone da app
 APP_TZ = ZoneInfo("Europe/Bucharest")
 
-# Dias da semana em PT (0=segunda ... 6=domingo)
+# dias da semana em PT
 WEEKDAYS_PT = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']
 
-# Janela de validação do quiosque
-WINDOW_BEFORE = timedelta(minutes=45)
-WINDOW_AFTER  = timedelta(minutes=105)
+# janela de validação do quiosque
+WINDOW_BEFORE = timedelta(minutes=60)
+WINDOW_AFTER  = timedelta(minutes=90)
+
+# sessão de marcação: tempo máximo de inatividade
+MARK_SESSION_TTL = timedelta(minutes=60)
+
 
 def in_window(meal_time, now=None):
-    """True se o momento atual estiver dentro da janela de validação da refeição de HOJE."""
     if now is None:
-        now = datetime.now(APP_TZ)
-    start = datetime.combine(now.date(), meal_time, tzinfo=APP_TZ) - WINDOW_BEFORE
-    end   = datetime.combine(now.date(), meal_time, tzinfo=APP_TZ) + WINDOW_AFTER
+        now = datetime.now(timezone.utc)
+    start = datetime.combine(now.date(), meal_time, tzinfo=timezone.utc) - WINDOW_BEFORE
+    end   = datetime.combine(now.date(), meal_time, tzinfo=timezone.utc) + WINDOW_AFTER
     return start <= now <= end
 
+
 def is_locked(day, meal_time, now=None, hours=48):
-    """True se (day + meal_time) estiver a menos de `hours` horas (bloqueado)."""
     if now is None:
         now = datetime.now(APP_TZ)
     meal_dt = datetime.combine(day, meal_time, tzinfo=APP_TZ)
     return (meal_dt - now) < timedelta(hours=hours)
-    # Se preferires bloquear também exatamente às 48:00:00, troca por: <=
+
+
+def _mark_session_user_id():
+    """Devolve o user_id autenticado para marcação, ou None se expirou/inválido."""
+    uid = session.get('mark_user_id')
+    exp_ts = session.get('mark_expires_ts')
+    if not uid or not exp_ts:
+        return None
+    # expiração
+    now_ts = datetime.now(APP_TZ).timestamp()
+    if now_ts > float(exp_ts):
+        # expirada
+        session.pop('mark_user_id', None)
+        session.pop('mark_expires_ts', None)
+        return None
+    return int(uid)
+
+
+def _refresh_mark_session():
+    """Renova o TTL enquanto o utilizador navega na área de marcação."""
+    session['mark_expires_ts'] = (datetime.now(APP_TZ) + MARK_SESSION_TTL).timestamp()
+
+
+bp = Blueprint('routes', __name__)
+
 
 @bp.route('/')
 def index():
+    # Página de entrada com form para user_id + pin
     return render_template('index.html')
 
 
-@bp.route('/mark', methods=['GET', 'POST'])
-def mark():
-    # obter user_id como já tens...
-    user_id = request.args.get('user_id') if request.method == 'GET' else request.form.get('user_id')
-    pin = request.args.get('pin') if request.method == 'GET' else request.form.get('pin')
-    if not user_id:
-        return render_template('index.html', error=None)
+# ---- LOGIN/LOGOUT DA MARCAÇÃO (usa sessão) ----
+
+@bp.route('/mark/login', methods=['POST'])
+def mark_login():
+    """Valida PIN e cria sessão de marcação sem expor o PIN no URL."""
+    # Lido sempre do POST do index.html
+    user_id_raw = request.form.get('user_id')
+    pin = request.form.get('pin', '').strip()
+
     try:
-        user_id = int(user_id)
-    except ValueError:
+        user_id = int(user_id_raw)
+    except (TypeError, ValueError):
         return render_template('index.html', error='Número inválido')
 
     user = User.query.get(user_id)
     if not user:
         return render_template('index.html', error='Utilizador não existe')
 
-    # ✅ validar PIN antes de mostrar/alterar marcações
-    if not pin or not user.pin_hash or not check_password_hash(user.pin_hash, str(pin)):
-        return render_template('index.html', error='PIN inválido ou em falta')
+    if not pin or not user.pin_hash or not check_password_hash(user.pin_hash, pin):
+        return render_template('index.html', error='PIN inválido')
 
+    # OK → cria sessão
+    session['mark_user_id'] = user_id
+    _refresh_mark_session()
+
+    # vai para a área de marcação sem PIN no URL
+    return redirect(url_for('routes.mark'))
+
+
+@bp.route('/mark/logout')
+def mark_logout():
+    session.pop('mark_user_id', None)
+    session.pop('mark_expires_ts', None)
+    flash('Terminaste a sessão de marcação.', 'info')
+    return redirect(url_for('routes.index'))
+
+
+# ---- MARCAÇÃO (listagem/edição) ----
+
+@bp.route('/mark', methods=['GET', 'POST'])
+def mark():
+    # Autenticação por sessão
+    user_id = _mark_session_user_id()
+    if not user_id:
+        return render_template('index.html', error='Sessão expirada. Faz login novamente.')
+
+    user = User.query.get(user_id)
+    if not user:
+        # user foi removido mean time
+        session.pop('mark_user_id', None)
+        session.pop('mark_expires_ts', None)
+        return render_template('index.html', error='Utilizador não existe')
 
     meals = Meal.query.order_by(Meal.id).all()
-
-    # Agora/today em APP_TZ
     now = datetime.now(APP_TZ)
     today = now.date()
-    days = [today + timedelta(days=i) for i in range(0, 14)]
+    days = [(today + timedelta(days=i)) for i in range(0, 14)]
 
-    # OPT-OUT: linha existente = CANCELADO
+    # OPT-OUT: linha existente = cancelado
     existing = Reservation.query.filter_by(user_id=user_id).all()
     canceled_set = {(r.date, r.meal_id) for r in existing}
 
-    # Bloqueios <48h
+    # (dia, meal_id) bloqueados pelas 48h
     locked_set = {
         (d, meal.id)
         for d in days
@@ -82,28 +135,26 @@ def mark():
     }
 
     if request.method == 'POST':
-        # No formulário: checkbox marcada = "vou comer" (por defeito vêm marcadas)
-        selected = set(request.form.getlist('reservation'))  # valores: "YYYY-MM-DD_mealId"
+        # Form da própria página mark.html
+        selected = set(request.form.getlist('reservation'))  # "YYYY-MM-DD_mealId"
 
         for d in days:
             for meal in meals:
                 key = f"{d}_{meal.id}"
-
-                # Dentro de 48h não mexe
                 if (d, meal.id) in locked_set:
-                    continue
+                    continue  # não mexe < 48h
 
-                wants_attend = key in selected                # checkbox está marcada
-                is_canceled = (d, meal.id) in canceled_set    # já existe cancelamento
+                wants_attend = key in selected
+                is_canceled = (d, meal.id) in canceled_set
 
                 if wants_attend and is_canceled:
-                    # remover cancelamento → volta a estar marcado por defeito
+                    # remover cancelamento
                     res = Reservation.query.filter_by(user_id=user_id, meal_id=meal.id, date=d).first()
                     if res:
                         db.session.delete(res)
 
                 elif (not wants_attend) and (not is_canceled):
-                    # criar cancelamento (utilizador desmarcou)
+                    # criar cancelamento
                     db.session.add(Reservation(user_id=user_id, meal_id=meal.id, date=d))
 
         try:
@@ -113,107 +164,97 @@ def mark():
             db.session.rollback()
             flash('Ocorreu um erro ao gravar. Tenta novamente.', 'danger')
 
-        return redirect(url_for('routes.mark', user_id=user_id))
+        # renova TTL e volta à página
+        _refresh_mark_session()
+        return redirect(url_for('routes.mark'))
 
+    # GET → mostra tabela
+    _refresh_mark_session()
     return render_template(
         'mark.html',
         user_id=user_id,
         meals=meals,
         days=days,
-        canceled_set=canceled_set,   # usado para saber o que está desmarcado (cancelado)
-        locked_set=locked_set,       # pares (dia, meal_id) bloqueados por <48h
-        weekdays=WEEKDAYS_PT         # nomes dos dias em PT
+        canceled_set=canceled_set,
+        locked_set=locked_set,
+        weekdays=WEEKDAYS_PT
     )
 
-@bp.route('/check', methods=['GET', 'POST'])
-def check():
-    result = None
-    selected_meal = None
-    if request.method == 'POST':
-        try:
-            user_id = int(request.form['user_id'])
-            meal_id = int(request.form['meal_id'])
-        except (KeyError, ValueError):
-            user_id = None
-            meal_id = None
 
-        today = datetime.now(APP_TZ).date()
-        if user_id and meal_id:
-            # OPT-OUT: se existir linha = cancelou → vermelho; se não existir = marcado → verde
-            res = Reservation.query.filter_by(user_id=user_id, meal_id=meal_id, date=today).first()
-            result = 'green' if not res else 'red'
-            selected_meal = meal_id
-
-    meals = Meal.query.order_by(Meal.id).all()
-    return render_template('check.html', meals=meals, result=result, selected_meal=selected_meal)
+# ---- QUIOSQUE ----
 
 @bp.route('/kiosk', methods=['GET', 'POST'])
-@login_required
+@login_required  # só admins autenticados
 def kiosk():
     meals = Meal.query.order_by(Meal.id).all()
-    now = datetime.now(APP_TZ)
-    today = now.date()
-
-    # escolhe a refeição cuja janela está ativa
-    active_meal = next((m for m in meals if in_window(m.scheduled_time, now=now)), None)
-
     result = None
     msg = None
 
+    # Determina refeição “corrente” para mostrar ao operador
+    now_utc = datetime.now(timezone.utc)
+    today = now_utc.date()
+
+    current_meal = None
+    for m in meals:
+        if in_window(m.scheduled_time, now=now_utc):
+            current_meal = m
+            break
+
     if request.method == 'POST':
-        # só pedimos o nº de utilizador; a refeição é a ativa
         try:
             user_id = int(request.form['user_id'])
         except (KeyError, ValueError):
             user_id = None
 
-        if not user_id:
-            result, msg = 'red', 'Número de utilizador inválido.'
-        elif not active_meal:
-            result, msg = 'red', 'Não há refeição em validação neste momento.'
+        # Se houver um <select> para forçar a refeição, respeita-o; senão usa a current_meal
+        try:
+            posted_meal_id = int(request.form.get('meal_id') or 0)
+        except ValueError:
+            posted_meal_id = 0
+
+        meal = Meal.query.get(posted_meal_id) if posted_meal_id else current_meal
+
+        if not user_id or not meal:
+            result, msg = 'red', 'Dados inválidos.'
         else:
-            # validação para a refeição ativa de HOJE
-            meal_id = active_meal.id
-            day = today
-
-            # modelo opt-out: se existir linha em reservations = cancelado
             canceled = Reservation.query.filter_by(
-                user_id=user_id, meal_id=meal_id, date=day
+                user_id=user_id, meal_id=meal.id, date=today
             ).first() is not None
-
             if canceled:
-                result, msg = 'red', 'Reserva cancelada para esta refeição.'
+                result, msg = 'red', 'Reserva cancelada.'
+            elif not in_window(meal.scheduled_time, now=now_utc):
+                result, msg = 'red', 'Fora da janela de validação.'
             else:
-                # registo idempotente da presença
                 existing = Attendance.query.filter_by(
-                    user_id=user_id, meal_id=meal_id, date=day
+                    user_id=user_id, meal_id=meal.id, date=today
                 ).first()
                 if not existing:
                     try:
-                        db.session.add(Attendance(user_id=user_id, meal_id=meal_id, date=day))
+                        db.session.add(Attendance(user_id=user_id, meal_id=meal.id, date=today))
                         db.session.commit()
                     except Exception:
                         db.session.rollback()
                         result, msg = 'red', 'Erro ao registar presença.'
-                        return render_template('kiosk.html',
-                                               active_meal=active_meal, day=today,
-                                               result=result, msg=msg)
+                        return render_template('kiosk.html', meals=meals, result=result, msg=msg,
+                                               current_meal=current_meal, today=today)
                 result, msg = 'green', 'Presença registada.'
 
-    return render_template('kiosk.html',
-                           active_meal=active_meal, day=today,
-                           result=result, msg=msg)
+    return render_template('kiosk.html', meals=meals, result=result, msg=msg,
+                           current_meal=current_meal, today=today)
 
+
+# ---- DASHBOARD ADMIN ----
 
 @bp.route('/admin')
 @login_required
 def admin_dashboard():
     date_str = request.args.get('date')
     try:
-        day = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.now(APP_TZ).date()
+        day = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.now().date()
     except ValueError:
-        day = datetime.now(APP_TZ).date()
+        day = datetime.now().date()
 
+    from sqlalchemy import func
     total_users = db.session.query(func.count(User.id)).scalar() or 0
 
     canceled = dict(
@@ -242,7 +283,6 @@ def admin_dashboard():
             "faltas_pct": faltas_pct
         })
 
-    # lista de cancelamentos (útil para consulta)
     reservations = (
         db.session.query(Reservation, Meal)
         .join(Meal, Reservation.meal_id == Meal.id)
@@ -253,22 +293,22 @@ def admin_dashboard():
 
     return render_template('admin_dashboard.html', day=day, cards=cards, reservations=reservations)
 
+
 @bp.route('/admin/absences')
 @login_required
 def admin_absences():
     date_str = request.args.get('date')
     meal_id = request.args.get('meal_id', type=int)
     try:
-        day = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.now(APP_TZ).date()
+        day = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.now().date()
     except ValueError:
-        day = datetime.now(APP_TZ).date()
+        day = datetime.now().date()
 
     meal = Meal.query.get(meal_id)
     if not meal:
         flash('Refeição inválida', 'danger')
         return redirect(url_for('routes.admin_dashboard', date=day.strftime('%Y-%m-%d')))
 
-    # Esperados = todos - cancelados
     canceled_users = {
         r.user_id for r in Reservation.query.with_entities(Reservation.user_id)
         .filter_by(date=day, meal_id=meal_id).all()
@@ -276,7 +316,6 @@ def admin_absences():
     all_users = {u.id for u in User.query.with_entities(User.id).all()}
     expected_users = all_users - canceled_users
 
-    # Presentes
     present_users = {
         a.user_id for a in Attendance.query.with_entities(Attendance.user_id)
         .filter_by(date=day, meal_id=meal_id).all()

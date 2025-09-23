@@ -4,7 +4,6 @@
 <p class="text-muted">Refeições marcadas por defeito. Retira a marca para desmarcar. Refeições a &lt;48h estão bloqueadas.</p>
 
 <form method="post" action="{{ url_for('routes.mark') }}">
-  <input type="hidden" name="user_id" value="{{ user_id }}">
 
   <div class="table-responsive">
     <table class="table table-sm align-middle bg-white shadow-sm">

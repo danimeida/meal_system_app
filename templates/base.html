@@ -15,22 +15,37 @@
   </style>
 </head>
 <body class="bg-light">
-<nav class="navbar navbar-expand-lg bg-body-tertiary mb-3">
-<div class="ms-auto">
-{% if current_user.is_authenticated %}
-{% if current_user.is_authenticated %}
-  {% if request.endpoint and request.endpoint.startswith('routes.kiosk') %}
-    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.admin_dashboard') }}">Menu Admin</a>
-  {% else %}
-    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
-  {% endif %}
-{% endif %}
-  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.logout') }}">Sair</a>
-{% else %}
-  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.admin_login') }}">Admin</a>
-{% endif %}
-</div>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('routes.index') }}">Meal System</a>
+
+    <ul class="navbar-nav ms-auto">
+      <!-- link para Admin -->
+      {% if current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('routes.admin_dashboard') }}">Admin</a>
+        </li>
+      {% endif %}
+
+      <!-- link para Quiosque -->
+      {% if current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
+        </li>
+      {% endif %}
+
+      <!-- botão logout da MARCAÇÃO (sessão de marcação, não admin) -->
+      {% if request.endpoint and request.endpoint.startswith('routes.mark') %}
+        <li class="nav-item">
+          <a class="btn btn-outline-light ms-2" href="{{ url_for('routes.mark_logout') }}">
+            Terminar sessão
+          </a>
+        </li>
+      {% endif %}
+    </ul>
+  </div>
 </nav>
+
 
 
 <main class="container mb-5">
