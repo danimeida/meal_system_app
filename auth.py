@@ -60,6 +60,7 @@ def admin_login():
         flash('Credenciais inválidas.', 'danger')
 
     return render_template('admin_login.html')
+bp_auth = Blueprint('auth', __name__)
 
 
 @bp_auth.route('/logout')
