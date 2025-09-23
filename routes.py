@@ -19,12 +19,14 @@ WINDOW_AFTER  = timedelta(minutes=90)
 MARK_SESSION_TTL = timedelta(minutes=60)
 
 
-def in_window(meal_time, now=None):
+def in_window_for(day, meal_time, now=None):
+    """Verifica se AGORA está dentro da janela da refeição (no fuso APP_TZ) para a data `day`."""
     if now is None:
-        now = datetime.now(timezone.utc)
-    start = datetime.combine(now.date(), meal_time, tzinfo=timezone.utc) - WINDOW_BEFORE
-    end   = datetime.combine(now.date(), meal_time, tzinfo=timezone.utc) + WINDOW_AFTER
+        now = datetime.now(APP_TZ)
+    start = datetime.combine(day, meal_time, tzinfo=APP_TZ) - WINDOW_BEFORE
+    end   = datetime.combine(day, meal_time, tzinfo=APP_TZ) + WINDOW_AFTER
     return start <= now <= end
+
 
 
 def is_locked(day, meal_time, now=None, hours=48):
