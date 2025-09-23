@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 from models import db, User, Meal, Reservation, Attendance
 from sqlalchemy import func
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 
@@ -46,7 +46,6 @@ def mark():
     # obter user_id como já tens...
     user_id = request.args.get('user_id') if request.method == 'GET' else request.form.get('user_id')
     pin = request.args.get('pin') if request.method == 'GET' else request.form.get('pin')
-
     if not user_id:
         return render_template('index.html', error=None)
     try:
@@ -60,7 +59,7 @@ def mark():
 
     # ✅ validar PIN antes de mostrar/alterar marcações
     if not pin or not user.pin_hash or not check_password_hash(user.pin_hash, str(pin)):
-        return render_template('index.html', error='PIN inválido')
+        return render_template('index.html', error='PIN inválido ou em falta')
 
 
     meals = Meal.query.order_by(Meal.id).all()
