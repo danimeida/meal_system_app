@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card p-4">
   <h3 class="mb-3">Marcação de refeições</h3>
-  <form action="{{ url_for('routes.mark_login') }}" method="post" class="row g-3">
+  <form action="{{ url_for('routes.mark') }}" method="get" class="row g-3">
   <div class="col-auto">
     <input class="form-control" type="number" min="1" max="201" name="user_id" placeholder="Nº utilizador" required>
   </div>
