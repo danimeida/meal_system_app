@@ -20,7 +20,7 @@
 {% if current_user.is_authenticated %}
 {% if current_user.is_authenticated %}
   {% if request.endpoint and request.endpoint.startswith('routes.kiosk') %}
-    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.admin_dashboard') }}">Menu Admin</a>
+    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.admin_dashboard') }}">Dashboard</a>
   {% else %}
     <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
   {% endif %}

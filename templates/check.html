@@ -4,7 +4,7 @@
   <h3 class="mb-3">Terminal de verificação</h3>
   <form method="post" class="row g-3 align-items-end">
     <div class="col-sm-3">
-      <label class="form-label">Nº utilizador</label>
+      <label class="form-label">Nº OB</label>
       <input required type="number" min="1" class="form-control" name="user_id" placeholder="ex.: 42">
     </div>
     <div class="col-sm-3">
@@ -30,7 +30,7 @@
         {{ '✔ TEM REFEIÇÃO MARCADA' if result=='green' else '✖ NÃO TEM REFEIÇÃO' }}
       </div>
       <div class="mt-1">
-        Hoje é {{ (namespace(t=cycler)).t and (().__class__) }} <!-- just to keep structure; ignore -->
+        Hoje é {{ (namespace(t=cycler)).t and (().__class__) }} 
       </div>
     </div>
   {% endif %}

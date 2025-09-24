@@ -175,7 +175,7 @@ def kiosk():
             ).first() is not None
 
             if canceled:
-                result, msg = 'red', 'Reserva cancelada para esta refeição.'
+                result, msg = 'red', 'Não tem refeição marcada.'
             else:
                 # registo idempotente da presença
                 existing = Attendance.query.filter_by(
@@ -187,7 +187,7 @@ def kiosk():
                         db.session.commit()
                     except Exception:
                         db.session.rollback()
-                        result, msg = 'red', 'Erro ao registar presença.'
+                        result, msg = 'yellow', 'Erro ao registar presença.'
                         return render_template('kiosk.html',
                                                active_meal=active_meal, day=today,
                                                result=result, msg=msg)
