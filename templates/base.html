@@ -22,16 +22,15 @@
     <a class="navbar-brand fw-semibold" href="{{ url_for('routes.index') }}">Meal System</a>
 
     <div class="ms-auto d-flex gap-2">
-      {# Botão Quiosque / Voltar ao Admin #}
-      {% if current_user.is_authenticated %}
-        {% if request.endpoint and request.endpoint == 'routes.kiosk' %}
+      {% if session.get('mark_user_id') %}
+        {% if request.endpoint == 'routes.kiosk' %}
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('routes.admin_dashboard') }}">Voltar ao Admin</a>
         {% else %}
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
         {% endif %}
-        <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.admin_logout') }}">Sair</a>
+        <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.logout') }}">Sair</a>
       {% else %}
-        <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.admin_login') }}">Admin</a>
+        <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.mark_login') }}">Admin</a>
       {% endif %}
     </div>
   </div>
