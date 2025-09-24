@@ -1,89 +1,37 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h4 class="mb-3">Quiosque</h4>
+<div class="card p-4">
+  <h3 class="mb-3">Quiosque</h3>
 
-    {% if current_meal %}
-      <p class="mb-2">
-        <strong>A validar:</strong>
-        {{ current_meal.name }} — {{ current_day.strftime('%d/%m/%Y') }}
-        <small class="text-muted">({{ current_meal.scheduled_time.strftime('%H:%M') }})</small>
-      </p>
-    {% else %}
-      <div class="alert alert-warning">
-        De momento não há nenhuma refeição em janela de validação.
-      </div>
-    {% endif %}
+  {% if active_meal %}
+    <div class="alert alert-info">
+      <strong>A validar:</strong>
+      {{ active_meal.name }} ({{ active_meal.scheduled_time.strftime('%H:%M') }})
+      — {{ day.strftime('%d/%m/%Y') }}
+    </div>
+  {% else %}
+    <div class="alert alert-warning">
+      Nenhuma refeição a decorrer.
+    </div>
+  {% endif %}
 
-    {% if msg %}
-      <div class="alert {{ 'alert-success' if result=='green' else 'alert-danger' }} mb-3">
-        {{ msg }}
-      </div>
-    {% endif %}
+  <form method="post" class="row g-3 align-items-end">
+    <div class="col-sm-3">
+      <label class="form-label">Nº OB</label>
+      <input required type="number" min="1" class="form-control" name="user_id" autofocus>
+    </div>
 
-    <form id="kioskForm" method="post" action="{{ url_for('routes.kiosk') }}" class="row g-3">
-      <div class="col-auto">
-        <label for="user_id" class="visually-hidden">Nº</label>
-        <input id="user_id" name="user_id" type="number" class="form-control form-control-lg"
-               placeholder="Nº OB" required autofocus>
-      </div>
-      <div class="col-auto">
-        <button id="validateBtn" class="btn btn-primary btn-lg" type="submit"
-                {% if not current_meal %}disabled{% endif %}>
-          Validar
-        </button>
-      </div>
-    </form>
-  </div>
+    <div class="col-sm-2">
+      <button class="btn btn-dark w-100" {% if not active_meal %}disabled{% endif %}>
+        Validar
+      </button>
+    </div>
+  </form>
+
+  {% if result %}
+    <div class="mt-4 p-4 text-center rounded {{ 'bg-success text-white' if result=='green' else 'bg-danger text-white' }}" style="font-size:1.5rem; font-weight:700;">
+      {{ msg }}
+    </div>
+  {% endif %}
 </div>
-
-<script>
-// --- Sons via WebAudio ---
-function playTone(freq=880, duration=150, type='sine', gain=0.08) {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = type;
-    o.frequency.value = freq;
-    g.gain.value = gain;
-    o.connect(g); g.connect(ctx.destination);
-    o.start();
-    setTimeout(() => { o.stop(); ctx.close(); }, duration);
-  } catch (_) {}
-}
-
-function playSuccess() {
-  playTone(880, 120, 'sine', 0.08);
-  setTimeout(() => playTone(1320, 160, 'sine', 0.08), 130);
-}
-function playError() {
-  playTone(220, 180, 'square', 0.06);
-  setTimeout(() => playTone(180, 180, 'square', 0.06), 190);
-}
-
-// --- Controlo botão e feedback ---
-const btn  = document.getElementById('validateBtn');
-const userInput = document.getElementById('user_id');
-
-function disableFor(ms) {
-  btn.disabled = true;
-  setTimeout(() => { btn.disabled = false; userInput.focus(); }, ms);
-}
-
-(function onLoadFeedback(){
-  const result = "{{ result or '' }}";  // 'green' | 'red' | ''
-  if (!result) return;
-
-  if (result === 'green') {
-    playSuccess();
-    disableFor(5000); // bloqueia 5s depois de sucesso
-  } else if (result === 'red') {
-    playError();
-    btn.disabled = false;
-    userInput.focus();
-  }
-})();
-</script>
 {% endblock %}

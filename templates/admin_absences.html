@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-3">
-  <h3 class="mb-0">Faltaram à {{ meal.name }} do dia {{ day.strftime('%Y-%m-%d') }}</h3>
+  <h3 class="mb-0">Faltaram — {{ meal.name }} — {{ day.strftime('%Y-%m-%d') }}</h3>
   <a class="btn btn-outline-secondary" href="{{ url_for('routes.admin_dashboard', date=day.strftime('%Y-%m-%d')) }}">Voltar</a>
 </div>
 
@@ -16,7 +16,7 @@
       </tbody>
     </table>
   {% else %}
-    <div class="text-muted">Ninguém faltou a esta refeição 🎉</div>
+    <div class="text-muted">Ninguém faltou 🎉</div>
   {% endif %}
 </div>
 {% endblock %}
