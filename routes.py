@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 from werkzeug.security import check_password_hash
 from models import db, User, Meal, Reservation, Attendance
@@ -15,8 +15,7 @@ WEEKDAYS_PT = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'dom
 WINDOW_BEFORE = timedelta(minutes=60)
 WINDOW_AFTER  = timedelta(minutes=90)
 
-# sessão de marcação: tempo máximo de inatividade
-MARK_SESSION_TTL = timedelta(minutes=60)
+bp = Blueprint('routes', __name__)
 
 
 def in_window_for(day, meal_time, now=None):
@@ -28,7 +27,6 @@ def in_window_for(day, meal_time, now=None):
     return start <= now <= end
 
 
-
 def is_locked(day, meal_time, now=None, hours=48):
     if now is None:
         now = datetime.now(APP_TZ)
@@ -36,50 +34,32 @@ def is_locked(day, meal_time, now=None, hours=48):
     return (meal_dt - now) < timedelta(hours=hours)
 
 
-def _mark_session_user_id():
-    """Devolve o user_id autenticado para marcação, ou None se expirou/inválido."""
-    uid = session.get('mark_user_id')
-    exp_ts = session.get('mark_expires_ts')
-    if not uid or not exp_ts:
-        return None
-    # expiração
-    now_ts = datetime.now(APP_TZ).timestamp()
-    if now_ts > float(exp_ts):
-        # expirada
-        session.pop('mark_user_id', None)
-        session.pop('mark_expires_ts', None)
-        return None
-    return int(uid)
-
-
-def _refresh_mark_session():
-    """Renova o TTL enquanto o utilizador navega na área de marcação."""
-    session['mark_expires_ts'] = (datetime.now(APP_TZ) + MARK_SESSION_TTL).timestamp()
-
-
-bp = Blueprint('routes', __name__)
-
-
 @bp.route('/')
 def index():
-    # Página de entrada com form para user_id + pin
+    # Página de entrada com form para user_id + pin (GET)
     return render_template('index.html')
 
 
-# ---- LOGIN/LOGOUT DA MARCAÇÃO (usa sessão) ----
+@bp.route('/mark', methods=['GET', 'POST'])
+def mark():
+    # Lê user_id e pin (da querystring no GET; do form no POST)
+    if request.method == 'GET':
+        user_id_raw = request.args.get('user_id')
+        pin = (request.args.get('pin') or '').strip()
+    else:
+        user_id_raw = request.form.get('user_id')
+        pin = (request.form.get('pin') or '').strip()
 
-@bp.route('/mark/login', methods=['POST'])
-def mark_login():
-    """Valida PIN e cria sessão de marcação sem expor o PIN no URL."""
-    # Lido sempre do POST do index.html
-    user_id_raw = request.form.get('user_id')
-    pin = request.form.get('pin', '').strip()
-
+    # Validar user_id
     try:
-        user_id = int(user_id_raw)
+        user_id = int(user_id_raw) if user_id_raw is not None else None
     except (TypeError, ValueError):
         return render_template('index.html', error='Número inválido')
 
+    if not user_id:
+        return render_template('index.html', error=None)
+
+    # Buscar utilizador e validar PIN
     user = User.query.get(user_id)
     if not user:
         return render_template('index.html', error='Utilizador não existe')
@@ -87,38 +67,7 @@ def mark_login():
     if not pin or not user.pin_hash or not check_password_hash(user.pin_hash, pin):
         return render_template('index.html', error='PIN inválido')
 
-    # OK → cria sessão
-    session['mark_user_id'] = user_id
-    _refresh_mark_session()
-
-    # vai para a área de marcação sem PIN no URL
-    return redirect(url_for('routes.mark'))
-
-
-@bp.route('/mark/logout')
-def mark_logout():
-    session.pop('mark_user_id', None)
-    session.pop('mark_expires_ts', None)
-    flash('Terminaste a sessão de marcação.', 'info')
-    return redirect(url_for('routes.index'))
-
-
-# ---- MARCAÇÃO (listagem/edição) ----
-
-@bp.route('/mark', methods=['GET', 'POST'])
-def mark():
-    # Autenticação por sessão
-    user_id = _mark_session_user_id()
-    if not user_id:
-        return render_template('index.html', error='Sessão expirada. Faz login novamente.')
-
-    user = User.query.get(user_id)
-    if not user:
-        # user foi removido mean time
-        session.pop('mark_user_id', None)
-        session.pop('mark_expires_ts', None)
-        return render_template('index.html', error='Utilizador não existe')
-
+    # Construir grelha
     meals = Meal.query.order_by(Meal.id).all()
     now = datetime.now(APP_TZ)
     today = now.date()
@@ -128,7 +77,7 @@ def mark():
     existing = Reservation.query.filter_by(user_id=user_id).all()
     canceled_set = {(r.date, r.meal_id) for r in existing}
 
-    # (dia, meal_id) bloqueados pelas 48h
+    # Bloqueios < 48h
     locked_set = {
         (d, meal.id)
         for d in days
@@ -137,7 +86,6 @@ def mark():
     }
 
     if request.method == 'POST':
-        # Form da própria página mark.html
         selected = set(request.form.getlist('reservation'))  # "YYYY-MM-DD_mealId"
 
         for d in days:
@@ -166,15 +114,14 @@ def mark():
             db.session.rollback()
             flash('Ocorreu um erro ao gravar. Tenta novamente.', 'danger')
 
-        # renova TTL e volta à página
-        _refresh_mark_session()
-        return redirect(url_for('routes.mark'))
+        # Voltamos à página, preservando user_id e pin no URL
+        return redirect(url_for('routes.mark', user_id=user_id, pin=pin))
 
     # GET → mostra tabela
-    _refresh_mark_session()
     return render_template(
         'mark.html',
         user_id=user_id,
+        pin=pin,                 # <- para o hidden do formulário
         meals=meals,
         days=days,
         canceled_set=canceled_set,
@@ -183,7 +130,7 @@ def mark():
     )
 
 
-# ---- QUIOSQUE ----
+# ---- QUIOSQUE (continua com login de admin) ----
 
 @bp.route('/kiosk', methods=['GET', 'POST'])
 @login_required
@@ -252,6 +199,7 @@ def kiosk():
         current_day=today_local,
         now=now_local
     )
+
 
 # ---- DASHBOARD ADMIN ----
 
