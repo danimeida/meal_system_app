@@ -22,7 +22,7 @@
     </div>
 
     <div class="col-sm-2">
-      <button class="btn btn-dark w-100" {% if not active_meal %}disabled{% endif %}>
+      <button id= "botaoValidar" class="btn btn-dark w-100" {% if not active_meal %}disabled{% endif %}>
         Validar
       </button>
     </div>
@@ -35,3 +35,19 @@
   {% endif %}
 </div>
 {% endblock %}
+
+<script>
+  const botao = document.getElementById('botaoValidar');
+
+  botao.addEventListener('click', function() {
+    // 1. Desabilita o botão e muda o texto
+    botao.disabled = true;
+    botao.textContent = 'Aguarde...';
+
+    // 2. Define um temporizador para reabilitar o botão
+    setTimeout(function() {
+      botao.disabled = false;
+      botao.textContent = 'Validar'; // Restaura o texto original
+    }, 5000); // Tempo em milissegundos (5 segundos)
+  });
+</script>
