@@ -28,7 +28,7 @@
         {% else %}
           <a class="btn btn-outline-primary btn-sm" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
         {% endif %}
-        <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.logout') }}">Sair</a>
+        <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.mark_logout') }}">Sair</a>
       {% else %}
         <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.mark_login') }}">Admin</a>
       {% endif %}
