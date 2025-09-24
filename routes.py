@@ -43,37 +43,37 @@ def index():
 
 @bp.route('/mark', methods=['GET', 'POST'])
 def mark():
-    # obter user_id como já tens...
-    user_id = request.args.get('user_id') if request.method == 'GET' else request.form.get('user_id')
-    pin = request.args.get('pin') if request.method == 'GET' else request.form.get('pin')
-    if not user_id:
-        return render_template('index.html', error=None)
+    # 1) Ler credenciais consoante o método
+    if request.method == 'GET':
+        user_id_raw = request.args.get('user_id')
+        pin = request.args.get('pin')
+    else:
+        user_id_raw = request.form.get('user_id')
+        pin = request.form.get('pin')
+
+    # 2) Validar user_id
     try:
-        user_id = int(user_id)
-    except ValueError:
+        user_id = int(user_id_raw)
+    except (TypeError, ValueError):
         return render_template('index.html', error='Número inválido')
 
     user = User.query.get(user_id)
     if not user:
         return render_template('index.html', error='Utilizador não existe')
 
-    # ✅ validar PIN antes de mostrar/alterar marcações
+    # 3) Validar PIN (sempre que entra na rota)
     if not pin or not user.pin_hash or not check_password_hash(user.pin_hash, str(pin)):
         return render_template('index.html', error='PIN inválido ou em falta')
 
-
+    # ---- (o resto do teu código mantém) ----
     meals = Meal.query.order_by(Meal.id).all()
-
-    # Agora/today em APP_TZ
     now = datetime.now(APP_TZ)
     today = now.date()
-    days = [today + timedelta(days=i) for i in range(0, 14)]
+    days = [(today + timedelta(days=i)) for i in range(0, 14)]
 
-    # OPT-OUT: linha existente = CANCELADO
     existing = Reservation.query.filter_by(user_id=user_id).all()
     canceled_set = {(r.date, r.meal_id) for r in existing}
 
-    # Bloqueios <48h
     locked_set = {
         (d, meal.id)
         for d in days
@@ -82,30 +82,20 @@ def mark():
     }
 
     if request.method == 'POST':
-        # No formulário: checkbox marcada = "vou comer" (por defeito vêm marcadas)
-        selected = set(request.form.getlist('reservation'))  # valores: "YYYY-MM-DD_mealId"
-
+        selected = set(request.form.getlist('reservation'))  # "YYYY-MM-DD_mealId"
         for d in days:
             for meal in meals:
                 key = f"{d}_{meal.id}"
-
-                # Dentro de 48h não mexe
                 if (d, meal.id) in locked_set:
                     continue
-
-                wants_attend = key in selected                # checkbox está marcada
-                is_canceled = (d, meal.id) in canceled_set    # já existe cancelamento
-
+                wants_attend = key in selected
+                is_canceled = (d, meal.id) in canceled_set
                 if wants_attend and is_canceled:
-                    # remover cancelamento → volta a estar marcado por defeito
                     res = Reservation.query.filter_by(user_id=user_id, meal_id=meal.id, date=d).first()
                     if res:
                         db.session.delete(res)
-
                 elif (not wants_attend) and (not is_canceled):
-                    # criar cancelamento (utilizador desmarcou)
                     db.session.add(Reservation(user_id=user_id, meal_id=meal.id, date=d))
-
         try:
             db.session.commit()
             flash('Preferências atualizadas!', 'success')
@@ -113,16 +103,19 @@ def mark():
             db.session.rollback()
             flash('Ocorreu um erro ao gravar. Tenta novamente.', 'danger')
 
-        return redirect(url_for('routes.mark', user_id=user_id))
+        # **mantém o PIN no URL após guardar**
+        return redirect(url_for('routes.mark', user_id=user_id, pin=pin))
 
+    # GET → render
     return render_template(
         'mark.html',
         user_id=user_id,
+        pin=pin,                    # <- PASSA O PIN PARA O TEMPLATE
         meals=meals,
         days=days,
-        canceled_set=canceled_set,   # usado para saber o que está desmarcado (cancelado)
-        locked_set=locked_set,       # pares (dia, meal_id) bloqueados por <48h
-        weekdays=WEEKDAYS_PT         # nomes dos dias em PT
+        canceled_set=canceled_set,
+        locked_set=locked_set,
+        weekdays=WEEKDAYS_PT
     )
 
 @bp.route('/check', methods=['GET', 'POST'])
