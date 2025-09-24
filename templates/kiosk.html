@@ -12,7 +12,7 @@
       </p>
     {% else %}
       <div class="alert alert-warning">
-        De momento não há nenhuma refeição a decorrer.
+        De momento não há nenhuma refeição em janela de validação.
       </div>
     {% endif %}
 
@@ -25,17 +25,21 @@
     <form id="kioskForm" method="post" action="{{ url_for('routes.kiosk') }}" class="row g-3">
       <div class="col-auto">
         <label for="user_id" class="visually-hidden">Nº</label>
-        <input id="user_id" name="user_id" type="number" class="form-control form-control-lg" placeholder="Nº utilizador" required autofocus>
+        <input id="user_id" name="user_id" type="number" class="form-control form-control-lg"
+               placeholder="Nº utilizador" required autofocus>
       </div>
       <div class="col-auto">
-        <button id="validateBtn" class="btn btn-primary btn-lg" type="submit">Validar</button>
+        <button id="validateBtn" class="btn btn-primary btn-lg" type="submit"
+                {% if not current_meal %}disabled{% endif %}>
+          Validar
+        </button>
       </div>
     </form>
   </div>
 </div>
 
 <script>
-// --- Sons via WebAudio (sem ficheiros) ---
+// --- Sons via WebAudio ---
 function playTone(freq=880, duration=150, type='sine', gain=0.08) {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -47,23 +51,19 @@ function playTone(freq=880, duration=150, type='sine', gain=0.08) {
     o.connect(g); g.connect(ctx.destination);
     o.start();
     setTimeout(() => { o.stop(); ctx.close(); }, duration);
-  } catch (_) { /* ignora se não suportado */ }
+  } catch (_) {}
 }
 
 function playSuccess() {
-  // “ding” em dois tons
   playTone(880, 120, 'sine', 0.08);
   setTimeout(() => playTone(1320, 160, 'sine', 0.08), 130);
 }
-
 function playError() {
-  // “buzz” curto
   playTone(220, 180, 'square', 0.06);
   setTimeout(() => playTone(180, 180, 'square', 0.06), 190);
 }
 
-// --- Controlo do botão e feedback ---
-const form = document.getElementById('kioskForm');
+// --- Controlo botão e feedback ---
 const btn  = document.getElementById('validateBtn');
 const userInput = document.getElementById('user_id');
 
@@ -72,23 +72,15 @@ function disableFor(ms) {
   setTimeout(() => { btn.disabled = false; userInput.focus(); }, ms);
 }
 
-form.addEventListener('submit', () => {
-  // evita cliques múltiplos enquanto o POST decorre
-  btn.disabled = true;
-});
-
-// Depois de o servidor responder, usamos a variável `result` para tocar som e gerir o botão.
 (function onLoadFeedback(){
   const result = "{{ result or '' }}";  // 'green' | 'red' | ''
-  if (!result) { btn.disabled = false; return; }
+  if (!result) return;
 
   if (result === 'green') {
     playSuccess();
-    // bloqueia 5s após validação com sucesso
-    disableFor(5000);
+    disableFor(5000); // bloqueia 5s depois de sucesso
   } else if (result === 'red') {
     playError();
-    // reativa já para nova tentativa
     btn.disabled = false;
     userInput.focus();
   }
