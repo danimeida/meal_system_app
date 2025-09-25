@@ -14,10 +14,10 @@ bp = Blueprint('routes', __name__)
 APP_TZ = ZoneInfo("Europe/Bucharest")
 
 # Dias da semana em PT (0=segunda ... 6=domingo)
-WEEKDAYS_PT = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']
+WEEKDAYS_PT = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']
 
 # Janela de validação do quiosque
-WINDOW_BEFORE = timedelta(minutes=45)
+WINDOW_BEFORE = timedelta(minutes=200)
 WINDOW_AFTER  = timedelta(minutes=105)
 
 def in_window(meal_time, now=None):
@@ -43,7 +43,7 @@ def index():
 
 @bp.route('/mark', methods=['GET', 'POST'])
 def mark():
-    # 1) Ler credenciais consoante o método
+    #Ler credenciais consoante o método
     if request.method == 'GET':
         user_id_raw = request.args.get('user_id')
         pin = request.args.get('pin')
@@ -51,7 +51,7 @@ def mark():
         user_id_raw = request.form.get('user_id')
         pin = request.form.get('pin')
 
-    # 2) Validar user_id
+    #Validar user_id
     try:
         user_id = int(user_id_raw)
     except (TypeError, ValueError):
@@ -61,11 +61,11 @@ def mark():
     if not user:
         return render_template('index.html', error='Utilizador não existe')
 
-    # 3) Validar PIN (sempre que entra na rota)
+    #Validar PIN (sempre que entra na rota)
     if not pin or not user.pin_hash or not check_password_hash(user.pin_hash, str(pin)):
         return render_template('index.html', error='PIN inválido ou em falta')
 
-    # ---- (o resto do teu código mantém) ----
+
     meals = Meal.query.order_by(Meal.id).all()
     now = datetime.now(APP_TZ)
     today = now.date()
@@ -98,7 +98,7 @@ def mark():
                     db.session.add(Reservation(user_id=user_id, meal_id=meal.id, date=d))
         try:
             db.session.commit()
-            flash('Preferências atualizadas!', 'success')
+            flash('Refeições atualizadas!', 'success')
         except Exception:
             db.session.rollback()
             flash('Ocorreu um erro ao gravar. Tenta novamente.', 'danger')
@@ -148,7 +148,7 @@ def kiosk():
     today = now.date()
 
     # escolhe a refeição cuja janela está ativa
-    active_meal = next((m for m in meals if in_window(m.scheduled_time, now=now)), None)
+    current_meal = next((m for m in meals if in_window(m.scheduled_time, now=now)), None)
 
     result = None
     msg = None
@@ -161,12 +161,12 @@ def kiosk():
             user_id = None
 
         if not user_id:
-            result, msg = 'red', 'Número de utilizador inválido.'
-        elif not active_meal:
+            result, msg = 'red', 'Número de OB inválido.'
+        elif not current_meal:
             result, msg = 'red', 'Não há refeição em validação neste momento.'
         else:
             # validação para a refeição ativa de HOJE
-            meal_id = active_meal.id
+            meal_id = current_meal.id
             day = today
 
             # modelo opt-out: se existir linha em reservations = cancelado
@@ -189,12 +189,12 @@ def kiosk():
                         db.session.rollback()
                         result, msg = 'yellow', 'Erro ao registar presença.'
                         return render_template('kiosk.html',
-                                               active_meal=active_meal, day=today,
+                                               current_meal=current_meal, day=today,
                                                result=result, msg=msg)
                 result, msg = 'green', 'Presença registada.'
 
     return render_template('kiosk.html',
-                           active_meal=active_meal, day=today,
+                           current_meal=current_meal, day=today,
                            result=result, msg=msg)
 
 
