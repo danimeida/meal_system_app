@@ -17,7 +17,7 @@ APP_TZ = ZoneInfo("Europe/Bucharest")
 WEEKDAYS_PT = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']
 
 # Janela de validação do quiosque
-WINDOW_BEFORE = timedelta(minutes=200)
+WINDOW_BEFORE = timedelta(minutes=30)
 WINDOW_AFTER  = timedelta(minutes=105)
 
 def in_window(meal_time, now=None):
