@@ -2,7 +2,7 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-3">
   <h3 class="mb-0">Faltaram — {{ meal.name }} — {{ day.strftime('%Y-%m-%d') }}</h3>
-  <a class="btn btn-outline-secondary" href="{{ url_for('routes.admin_dashboard', date=day.strftime('%Y-%m-%d')) }}">Voltar</a>
+  <a class="btn btn-outline-secondary" href="{{ url_for('routes.admin_dashboard', date=day.strftime('%Y-%m-%d')) }}">Dashboard</a>
 </div>
 
 <div class="card p-3">
@@ -16,7 +16,7 @@
       </tbody>
     </table>
   {% else %}
-    <div class="text-muted">Ninguém faltou 🎉</div>
+    <div class="text-muted">Ninguém faltou à Refeição 🎉</div>
   {% endif %}
 </div>
 {% endblock %}

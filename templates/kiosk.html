@@ -3,11 +3,11 @@
 <div class="card p-4">
   <h3 class="mb-3">Quiosque</h3>
 
-  {% if active_meal %}
+  {% if current_meal %}
     <div class="alert alert-info">
       <strong>A validar:</strong>
-      {{ active_meal.name }} ({{ active_meal.scheduled_time.strftime('%H:%M') }})
-      — {{ day.strftime('%d/%m/%Y') }}
+      {{ current_meal.name }} ({{ current_meal.scheduled_time.strftime('%H:%M') }})
+      — {{ current_day.strftime('%d/%m/%Y') }}
     </div>
   {% else %}
     <div class="alert alert-warning">
@@ -15,39 +15,96 @@
     </div>
   {% endif %}
 
-  <form method="post" class="row g-3 align-items-end">
+  <form method="post" class="row g-3 align-items-end" id="kiosk-form">
     <div class="col-sm-3">
       <label class="form-label">Nº OB</label>
       <input required type="number" min="1" class="form-control" name="user_id" autofocus>
     </div>
 
     <div class="col-sm-2">
-      <button id= "botaoValidar" class="btn btn-dark w-100" {% if not active_meal %}disabled{% endif %}>
+      <button id="validate-btn" class="btn btn-dark w-100" {% if not current_meal %}disabled{% endif %}>
         Validar
       </button>
     </div>
   </form>
 
   {% if result %}
-    <div class="mt-4 p-4 text-center rounded {{ 'bg-success text-white' if result=='green' else 'bg-danger text-white' }}" style="font-size:1.5rem; font-weight:700;">
+    <div id="kiosk-msg"
+         class="mt-4 p-4 text-center rounded {{ 'bg-success text-white' if result=='green' else 'bg-danger text-white' }}"
+         style="font-size:1.5rem; font-weight:700;"
+         aria-live="polite">
       {{ msg }}
     </div>
   {% endif %}
+
+  <!-- Estado para o JS (sem mostrar nada) -->
+  <div id="kiosk-state"
+       data-result="{{ result or '' }}"
+       data-active="{{ '1' if current_meal else '0' }}"
+       hidden></div>
 </div>
-{% endblock %}
 
 <script>
-  const botao = document.getElementById('botaoValidar');
+  // Beeps sem ficheiros: Web Audio API
+  function playToneSequence(steps) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      let t = ctx.currentTime;
+      steps.forEach(([freq, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.15, t);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        t += dur / 1000;
+        osc.stop(t);
+      });
+    } catch (_) {
+      // silêncio se o browser não suportar
+    }
+  }
 
-  botao.addEventListener('click', function() {
-    // 1. Desabilita o botão e muda o texto
-    botao.disabled = true;
-    botao.textContent = 'Aguarde...';
+  function successBeep() {
+    // dois "pings" rápidos e agudos
+    playToneSequence([[880, 160], [0, 60], [990, 160]]);
+  }
+  function errorBeep() {
+    // dois tons graves
+    playToneSequence([[220, 220], [0, 80], [180, 220]]);
+  }
 
-    // 2. Define um temporizador para reabilitar o botão
-    setTimeout(function() {
-      botao.disabled = false;
-      botao.textContent = 'Validar'; // Restaura o texto original
-    }, 5000); // Tempo em milissegundos (5 segundos)
+  document.addEventListener('DOMContentLoaded', () => {
+    const state = document.getElementById('kiosk-state');
+    const btn = document.getElementById('validate-btn');
+
+    if (!state || !btn) return;
+
+    const result = state.dataset.result;   // 'green' | 'red' | ''
+    const active = state.dataset.active === '1';
+
+    // Som consoante o resultado do POST anterior
+    if (result === 'green') {
+      successBeep();
+      // Cooldown de 5s após sucesso
+      btn.disabled = true;
+      const original = btn.textContent.trim();
+      btn.textContent = 'Validado! Aguarde 5s...';
+      setTimeout(() => {
+        // só reativa se ainda existir refeição ativa
+        if (active) {
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      }, 5000);
+    } else if (result === 'red') {
+      errorBeep();
+      // Sem cooldown no erro
+    }
+
+    // Se não houver refeição ativa, o botão já veio disabled via Jinja.
+    // (mantemos assim para não permitir cliques fora da janela)
   });
 </script>
+{% endblock %}
