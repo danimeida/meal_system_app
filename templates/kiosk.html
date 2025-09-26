@@ -1,110 +1,94 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="card p-4">
-  <h3 class="mb-3">Quiosque</h3>
 
-  {% if current_meal %}
-    <div class="alert alert-info">
-      <strong>A validar:</strong>
-      {{ current_meal.name }} ({{ current_meal.scheduled_time.strftime('%H:%M') }})
-      — {{ day.strftime('%d/%m/%Y') }}
-    </div>
-  {% else %}
-    <div class="alert alert-warning">
-      Nenhuma refeição a decorrer.
-    </div>
-  {% endif %}
 
-  <form method="post" class="row g-3 align-items-end" id="kiosk-form">
-    <div class="col-sm-3">
-      <label class="form-label">Nº OB</label>
-      <input required type="number" min="1" class="form-control" name="user_id" autofocus>
-    </div>
+<form id="kiosk-form" class="row g-3 align-items-end">
+  <div class="col-sm-3">
+    <label class="form-label">Nº OB</label>
+    <input required type="number" min="1" class="form-control" name="user_id" autofocus>
+  </div>
+  <div class="col-sm-2">
+    <button id="btn-validate"
+        class="btn btn-dark w-100"
+        data-active="{{ 1 if current_meal else 0 }}"
+        {% if not current_meal %}disabled{% endif %}>
+  Validar
+</button>
+  </div>
+</form>
 
-    <div class="col-sm-2">
-      <button id="validate-btn" class="btn btn-dark w-100" {% if not current_meal %}disabled{% endif %}>
-        Validar
-      </button>
-    </div>
-  </form>
+<!-- feedback -->
+<div id="result-box" class="mt-4 p-4 text-center rounded d-none"></div>
 
-  {% if result %}
-    <div id="kiosk-msg"
-         class="mt-4 p-4 text-center rounded {{ 'bg-success text-white' if result=='green' else 'bg-danger text-white' }}"
-         style="font-size:1.5rem; font-weight:700;"
-         aria-live="polite">
-      {{ msg }}
-    </div>
-  {% endif %}
-
-  <!-- Estado para o JS (sem mostrar nada) -->
-  <div id="kiosk-state"
-       data-result="{{ result or '' }}"
-       data-active="{{ '1' if current_meal else '0' }}"
-       hidden></div>
-</div>
+<!-- Sons (ficheiros curtos .mp3/.m4a; podes trocar os src) -->
+<audio id="snd-ok"  src="{{ url_for('static', filename='static/temref.mp3') }}"  preload="auto" playsinline></audio>
+<audio id="snd-bad" src="{{ url_for('static', filename='sounds/naotemref.mp3') }}" preload="auto" playsinline></audio>
 
 <script>
-  // Beeps sem ficheiros: Web Audio API
-  function playToneSequence(steps) {
+(function () {
+  const form = document.getElementById('kiosk-form');
+  const btn  = document.getElementById('btn-validate');
+  const box  = document.getElementById('result-box');
+  const ok   = document.getElementById('snd-ok');
+  const bad  = document.getElementById('snd-bad');
+const hasActive = btn.dataset.active === '1';
+if (!hasActive) return;
+  // iOS/Safari “unlock”: primeira interação tenta tocar 1 ms de silêncio
+  let audioPrimed = false;
+  function primeAudio() {
+    if (audioPrimed) return;
+    audioPrimed = true;
+    ok.play().then(() => { ok.pause(); ok.currentTime = 0; }).catch(()=>{});
+    bad.play().then(() => { bad.pause(); bad.currentTime = 0; }).catch(()=>{});
+  }
+  window.addEventListener('touchstart', primeAudio, { once:true });
+  window.addEventListener('click',      primeAudio, { once:true });
+
+  function showMsg(kind, text) {
+    box.className = 'mt-4 p-4 text-center rounded';
+    if (kind === 'green') {
+      box.classList.add('bg-success','text-white');
+    } else {
+      box.classList.add('bg-danger','text-white');
+    }
+    box.textContent = text;
+    box.classList.remove('d-none');
+  }
+
+  form.addEventListener('submit', (e) => e.preventDefault());
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    // bloqueia botão enquanto valida
+    btn.disabled = true;
+
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      let t = ctx.currentTime;
-      steps.forEach(([freq, dur]) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, t);
-        gain.gain.setValueAtTime(0.15, t);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(t);
-        t += dur / 1000;
-        osc.stop(t);
+      const fd = new FormData(form);
+      const res = await fetch('{{ url_for("routes.kiosk") }}', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: fd
       });
-    } catch (_) {
-      // silêncio se o browser não suportar
+      const data = await res.json(); // {result:'green'|'red', msg:'...', current_meal:{...}}
+
+      // toca som conforme resultado
+      if (data.result === 'green') {
+        ok.currentTime = 0;
+        ok.play().catch(()=>{});
+        showMsg('green', data.msg || 'Presença registada.');
+        // cooldown 5s depois de SUCESSO
+        setTimeout(() => { btn.disabled = false; }, 5000);
+      } else {
+        bad.currentTime = 0;
+        bad.play().catch(()=>{});
+        showMsg('red', data.msg || 'Sem reserva válida.');
+        // sem cooldown longo no erro (podes trocar para 1s, por ex.)
+        setTimeout(() => { btn.disabled = false; }, 1000);
+      }
+    } catch (err) {
+      bad.currentTime = 0;
+      bad.play().catch(()=>{});
+      showMsg('red', 'Erro de rede. Tenta novamente.');
+      setTimeout(() => { btn.disabled = false; }, 1000);
     }
-  }
-
-  function successBeep() {
-    // dois "pings" rápidos e agudos
-    playToneSequence([[880, 160], [0, 60], [990, 160]]);
-  }
-  function errorBeep() {
-    // dois tons graves
-    playToneSequence([[220, 220], [0, 80], [180, 220]]);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    const state = document.getElementById('kiosk-state');
-    const btn = document.getElementById('validate-btn');
-
-    if (!state || !btn) return;
-
-    const result = state.dataset.result;   // 'green' | 'red' | ''
-    const active = state.dataset.active === '1';
-
-    // Som consoante o resultado do POST anterior
-    if (result === 'green') {
-      successBeep();
-      // Cooldown de 5s após sucesso
-      btn.disabled = true;
-      const original = btn.textContent.trim();
-      btn.textContent = 'Validado! Aguarde 5s...';
-      setTimeout(() => {
-        // só reativa se ainda existir refeição ativa
-        if (active) {
-          btn.disabled = false;
-          btn.textContent = original;
-        }
-      }, 5000);
-    } else if (result === 'red') {
-      errorBeep();
-      // Sem cooldown no erro
-    }
-
-    // Se não houver refeição ativa, o botão já veio disabled via Jinja.
-    // (mantemos assim para não permitir cliques fora da janela)
   });
+})();
 </script>
-{% endblock %}

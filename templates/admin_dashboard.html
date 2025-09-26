@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-3">
-  <h3 class="mb-0">Dashboard — {{ day.strftime('%Y-%m-%d') }}</h3>
+  <h3 class="mb-0">Dashboard <strong>{{ day.strftime('%d-%m-%Y') }}</strong> </h3>
   <form class="d-flex gap-2" method="get" action="{{ url_for('routes.admin_dashboard') }}">
     <input type="date" class="form-control" name="date" value="{{ day.strftime('%Y-%m-%d') }}">
     <button class="btn btn-outline-primary">Ir</button>
