@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-3">
-  <h3 class="mb-0">Faltaram — {{ meal.name }} — {{ day.strftime('%Y-%m-%d') }}</h3>
+  <h3 class="mb-0">Faltaram à {{ meal.name }} de dia {{ day.strftime('%d-%m-%Y') }}</h3>
   <a class="btn btn-outline-secondary" href="{{ url_for('routes.admin_dashboard', date=day.strftime('%Y-%m-%d')) }}">Dashboard</a>
 </div>
 
