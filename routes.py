@@ -69,7 +69,7 @@ def mark():
     meals = Meal.query.order_by(Meal.id).all()
     now = datetime.now(APP_TZ)
     today = now.date()
-    days = [(today + timedelta(days=i)) for i in range(0, 14)]
+    days = [(today + timedelta(days=i)) for i in range(0, 31)]
 
     existing = Reservation.query.filter_by(user_id=user_id).all()
     canceled_set = {(r.date, r.meal_id) for r in existing}
