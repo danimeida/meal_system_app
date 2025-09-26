@@ -13,7 +13,7 @@
         <tr>
           <th>Data</th>
           {% for meal in meals %}
-            <th class="meal-col">{{ meal.name }}<br><small class="text-muted">{{ meal.scheduled_time.strftime('%H:%M') }}</small></th>
+            <th class="meal-col">{{ meal.name }}</th>
           {% endfor %}
         </tr>
       </thead>
@@ -23,7 +23,7 @@
         {% set wd = weekdays[d.weekday()] %}
         <tr class="{% if weekend %}weekend-row{% endif %}">
           <td class="text-nowrap">
-            {{ d.strftime('%d/%m/%Y') }}
+            {{ d.strftime('%Y/%m/%d') }}
             <small class="text-muted">({{ wd }})</small>
           </td>
           {% for meal in meals %}
