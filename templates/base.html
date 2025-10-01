@@ -19,23 +19,19 @@
 </head>
 <body class="bg-light">
 <nav class="navbar navbar-expand-lg bg-body-tertiary mb-3">
-<div class="ms-auto">
-{% if current_user.is_authenticated %}
-{% if current_user.is_authenticated %}
-  {% if request.endpoint and request.endpoint.startswith('routes.kiosk') %}
-    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.admin_dashboard') }}">Dashboard</a>
-  {% else %}
-    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
-  {% endif %}
-  {% if request.endpoint and request.endpoint.startswith('auth.admin_login') %}
+<div class="ms-auto d-flex gap-2">
+  {% if request.endpoint == 'auth.admin_login' %}
     <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.index') }}">Voltar</a>
+  {% elif current_user.is_authenticated %}
+    {% if request.endpoint and request.endpoint.startswith('routes.kiosk') %}
+      <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.admin_dashboard') }}">Dashboard</a>
+    {% else %}
+      <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
+    {% endif %}
+    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.logout') }}">Sair</a>
+  {% else %}
+    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.admin_login') }}">Admin</a>
   {% endif %}
-{% endif %}
-  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.logout') }}">Sair</a>
-{% else %}
-  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.admin_login') }}">Admin</a>
-{% endif %}
-
 </div>
 </nav>
 
