@@ -27,10 +27,8 @@
   {% else %}
     <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
   {% endif %}
-    {% if request.endpoint and request.endpoint.startswith('routes.admin_login') %}
+  {% if request.endpoint and request.endpoint.startswith('routes.admin_login') %}
     <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.index') }}">Voltar</a>
-  {% else %}
-    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.kiosk') }}">Quiosque</a>
   {% endif %}
 {% endif %}
   <a class="btn btn-outline-dark btn-sm" href="{{ url_for('auth.logout') }}">Sair</a>
