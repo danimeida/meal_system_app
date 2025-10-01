@@ -17,8 +17,8 @@ APP_TZ = ZoneInfo("Europe/Bucharest")
 WEEKDAYS_PT = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']
 
 # Janela de validação do quiosque
-WINDOW_BEFORE = timedelta(minutes=45)
-WINDOW_AFTER  = timedelta(minutes=105)
+WINDOW_BEFORE = timedelta(minutes=60)
+WINDOW_AFTER  = timedelta(minutes=140)
 
 def in_window(meal_time, now=None):
     """True se o momento atual estiver dentro da janela de validação da refeição de HOJE."""

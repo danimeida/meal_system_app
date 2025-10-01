@@ -6,7 +6,7 @@
   {% if current_meal %}
     <div class="alert alert-info">
       <strong>A validar:</strong>
-      {{ current_meal.name }} ({{ current_meal.scheduled_time.strftime('%H:%M') }})
+      {{ current_meal.name }}
       — {{ day.strftime('%d/%m/%Y') }}
     </div>
   {% else %}
