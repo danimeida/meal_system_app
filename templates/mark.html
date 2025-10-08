@@ -2,16 +2,18 @@
 {% block content %}
 <h3 class="mb-3">Nº OB: {{ user_id }}</h3>
 
-<div class="text-center mb-4">
-  <a href="{{ url_for('static', filename='ementa.pdf') }}" target="_blank" class="btn btn-outline-dark">
-    📄 Ementa semanal
-  </a>
-</div>
+
 
 <p class="text-muted">Refeições marcadas por defeito. Retira a marca para desmarcar. Refeições a <strong>&lt; 48h</strong> estão bloqueadas.</p>
 <form method="post" action="{{ url_for('routes.mark') }}">
   <input type="hidden" name="user_id" value="{{ user_id }}">
   <input type="hidden" name="pin" value="{{ pin }}">  
+
+<div class="text-center mb-4">
+  <a href="{{ url_for('static', filename='ementa.pdf') }}" target="_blank" class="btn btn-outline-dark">
+    📄 Ementa semanal
+  </a>
+</div>
 
   <div class="table-responsive">
     <table class="table table-sm align-middle bg-white shadow-sm">
