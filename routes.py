@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from zoneinfo import ZoneInfo
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
@@ -19,6 +19,19 @@ WEEKDAYS_PT = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']
 # Janela de validação do quiosque
 WINDOW_BEFORE = timedelta(minutes=60)
 WINDOW_AFTER  = timedelta(minutes=140)
+
+# definir a semana para depois utilziar para as estatisticas semanais
+def week_range_sat_to_fri(anchor: date | None = None):
+    """Devolve (start, end) de uma semana Sábado..Sexta que contém `anchor` (ou hoje)."""
+    if anchor is None:
+        anchor = datetime.now().date()
+    # weekday(): Mon=0..Sun=6  -> Queremos Sábado=5 como início
+    dow = anchor.weekday()          # 0..6
+    # distância até sábado (5)
+    delta_to_sat = (dow - 5) % 7
+    start = anchor - timedelta(days=delta_to_sat)
+    end   = start + timedelta(days=6)
+    return start, end
 
 def in_window(meal_time, now=None):
     """True se o momento atual estiver dentro da janela de validação da refeição de HOJE."""
@@ -277,3 +290,115 @@ def admin_absences():
 
     absent_users = sorted(expected_users - present_users)
     return render_template('admin_absences.html', day=day, meal=meal, absent_users=absent_users)
+
+
+@bp.route('/admin/weekly')
+@login_required
+def admin_weekly():
+    """
+    Estatísticas semanais (Sáb→Sex):
+      - Top utilizadores com mais faltas (faltas = esperados - presentes)
+      - Totais por refeição e percentagens
+    """
+    # Aceita ?anchor=YYYY-MM-DD para navegar semanas; se não vier: hoje
+    anchor_str = request.args.get('anchor')
+    try:
+        anchor = datetime.strptime(anchor_str, '%Y-%m-%d').date() if anchor_str else datetime.now().date()
+    except ValueError:
+        anchor = datetime.now().date()
+
+    week_start, week_end = week_range_sat_to_fri(anchor)
+
+    # Dados base
+    meals = Meal.query.order_by(Meal.id).all()
+    all_days = [week_start + timedelta(days=i) for i in range(7)]
+
+    # Universo de utilizadores
+    all_user_ids = [u.id for u in User.query.with_entities(User.id).all()]
+    all_user_set = set(all_user_ids)
+
+    # Buscar CANCELAMENTOS da semana (opt-out)
+    res_rows = (
+        Reservation.query
+        .with_entities(Reservation.user_id, Reservation.meal_id, Reservation.date)
+        .filter(Reservation.date >= week_start, Reservation.date <= week_end)
+        .all()
+    )
+    canceled_map: dict[tuple[date,int], set[int]] = {}
+    for uid, mid, d in res_rows:
+        canceled_map.setdefault((d, mid), set()).add(uid)
+
+    # Buscar PRESENÇAS da semana
+    att_rows = (
+        Attendance.query
+        .with_entities(Attendance.user_id, Attendance.meal_id, Attendance.date)
+        .filter(Attendance.date >= week_start, Attendance.date <= week_end)
+        .all()
+    )
+    present_map: dict[tuple[date,int], set[int]] = {}
+    for uid, mid, d in att_rows:
+        present_map.setdefault((d, mid), set()).add(uid)
+
+    # Agregar faltas por utilizador e por refeição
+    absences_per_user: dict[int, int] = {uid: 0 for uid in all_user_set}
+    per_meal_totals = {m.id: {"name": m.name, "expected": 0, "present": 0, "absent": 0} for m in meals}
+
+    for d in all_days:
+        for m in meals:
+            canceled = canceled_map.get((d, m.id), set())
+            expected = all_user_set - canceled
+            present  = present_map.get((d, m.id), set())
+            # apenas contamos presentes dentro dos esperados (só por segurança)
+            present_effective = present & expected
+            absent_set = expected - present_effective
+
+            # Totais por refeição
+            per_meal_totals[m.id]["expected"] += len(expected)
+            per_meal_totals[m.id]["present"]  += len(present_effective)
+            per_meal_totals[m.id]["absent"]   += len(absent_set)
+
+            # Acumular faltas por utilizador
+            for uid in absent_set:
+                absences_per_user[uid] = absences_per_user.get(uid, 0) + 1
+
+    # Top faltosos (ordena desc, ignora quem tem 0)
+    top_absentees = sorted(
+        ((uid, cnt) for uid, cnt in absences_per_user.items() if cnt > 0),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    # Traz info básica dos users (se tiveres campos como name, mostra; senão, fica só o id)
+    users_map = {u.id: u for u in User.query.filter(User.id.in_([uid for uid, _ in top_absentees])).all()}
+
+    # Preparar linhas para a tabela
+    top_rows = []
+    for uid, cnt in top_absentees:
+        u = users_map.get(uid)
+        display = getattr(u, "name", None) or getattr(u, "full_name", None) or f"OB {uid}"
+        top_rows.append({"user_id": uid, "display": display, "absences": cnt})
+
+    # Converter totais por refeição para lista ordenada pelo id
+    per_meal_rows = []
+    for m in meals:
+        t = per_meal_totals[m.id]
+        expected = t["expected"]
+        absent   = t["absent"]
+        present  = t["present"]
+        faltas_pct = (absent / expected * 100.0) if expected else 0.0
+        per_meal_rows.append({
+            "meal_id": m.id,
+            "meal_name": t["name"],
+            "expected": expected,
+            "present": present,
+            "absent": absent,
+            "faltas_pct": round(faltas_pct, 1)
+        })
+
+    return render_template(
+        'admin_weekly.html',
+        week_start=week_start,
+        week_end=week_end,
+        top_rows=top_rows[:50],   # mostra os 50 com mais faltas
+        per_meal_rows=per_meal_rows
+    )
