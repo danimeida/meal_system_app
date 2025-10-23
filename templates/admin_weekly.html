@@ -1,28 +1,28 @@
 {% extends 'base.html' %}
 {% block content %}
-<h3 class="mb-3">Estatísticas Semanais</h3>
+<h3 class="mb-3">Faltas Semanais</h3>
 <p class="text-muted">
-  Semana: <strong>{{ week_start.strftime('%d/%m/%Y') }}</strong> a
-  <strong>{{ week_end.strftime('%d/%m/%Y') }}</strong> (Sáb → Sex)
+  Semana: <strong>{{ week_start.strftime('%d/%m/%Y') }} (SÁB)</strong> a
+  <strong>{{ week_end.strftime('%d/%m/%Y') }} (SEX)</strong>
 </p>
 
 <div class="d-flex gap-2 mb-3">
   <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('routes.admin_weekly', anchor=prev_anchor) }}">← Semana anterior</a>
   <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('routes.admin_weekly', anchor=next_anchor) }}">Semana seguinte →</a>
-  <a class="btn btn-outline-primary btn-sm" href="{{ url_for('routes.admin_dashboard', date=week_start.strftime('%Y-%m-%d')) }}">Voltar ao dashboard</a>
+  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.admin_dashboard', date=week_start.strftime('%Y-%m-%d')) }}">Voltar ao dashboard</a>
 </div>
 
 
 <div class="row g-4">
   <div class="col-lg-6">
     <div class="card shadow-sm">
-      <div class="card-header">Top faltas (utilizadores)</div>
+      <div class="card-header">TOP 50</div>
       <div class="table-responsive">
         <table class="table table-sm mb-0">
           <thead>
             <tr>
               <th>#</th>
-              <th>Utilizador</th>
+              <th>Nº OB</th>
               <th class="text-end">Faltas</th>
             </tr>
           </thead>
@@ -31,45 +31,12 @@
               {% for row in top_rows %}
               <tr>
                 <td class="text-muted">{{ loop.index }}</td>
-                <td>{{ row.display }} <small class="text-muted">(id {{ row.user_id }})</small></td>
-                <td class="text-end fw-semibold">{{ row.absences }}</td>
+                <td>{{ row.display }} </td>
+                <td>{{ row.absences }}</td>
               </tr>
               {% endfor %}
             {% else %}
               <tr><td colspan="3" class="text-center text-muted">Sem faltas nesta semana 🎉</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-lg-6">
-    <div class="card shadow-sm">
-      <div class="card-header">Totais por refeição (semana)</div>
-      <div class="table-responsive">
-        <table class="table table-sm mb-0">
-          <thead>
-            <tr>
-              <th>Refeição</th>
-              <th class="text-end">Esperados</th>
-              <th class="text-end">Presentes</th>
-              <th class="text-end">Faltas</th>
-              <th class="text-end">% Faltas</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in per_meal_rows %}
-            <tr>
-              <td>{{ r.meal_name }}</td>
-              <td class="text-end">{{ r.expected }}</td>
-              <td class="text-end">{{ r.present }}</td>
-              <td class="text-end">{{ r.absent }}</td>
-              <td class="text-end">{{ r.faltas_pct }}%</td>
-            </tr>
-            {% endfor %}
-            {% if not per_meal_rows %}
-              <tr><td colspan="5" class="text-center text-muted">Sem dados</td></tr>
             {% endif %}
           </tbody>
         </table>

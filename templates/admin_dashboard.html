@@ -1,12 +1,11 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<a class="btn btn-outline-primary btn-sm" href="{{ url_for('routes.admin_weekly') }}">
-  Estatísticas Semanais
-</a>
+
 
 <div class="d-flex align-items-center justify-content-between mb-3">
   <h3 class="mb-0"><strong>Dashboard</strong> </h3>
+  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('routes.admin_weekly') }}">Estatísticas Semanais</a>
   <form class="d-flex gap-2" method="get" action="{{ url_for('routes.admin_dashboard') }}">
     <input type="date" class="form-control" name="date" value="{{ day.strftime('%Y-%m-%d') }}">
     <button class="btn btn-outline-primary">Ir</button>
