@@ -7,13 +7,11 @@
 </p>
 
 <div class="d-flex gap-2 mb-3">
-  <!-- Navegação simples por semanas -->
-  {% set prev_anchor = (week_start - timedelta(days=1)).strftime('%Y-%m-%d') %}
-  {% set next_anchor = (week_end + timedelta(days=1)).strftime('%Y-%m-%d') %}
   <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('routes.admin_weekly', anchor=prev_anchor) }}">← Semana anterior</a>
   <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('routes.admin_weekly', anchor=next_anchor) }}">Semana seguinte →</a>
   <a class="btn btn-outline-primary btn-sm" href="{{ url_for('routes.admin_dashboard', date=week_start.strftime('%Y-%m-%d')) }}">Voltar ao dashboard</a>
 </div>
+
 
 <div class="row g-4">
   <div class="col-lg-6">

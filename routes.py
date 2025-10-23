@@ -394,11 +394,15 @@ def admin_weekly():
             "absent": absent,
             "faltas_pct": round(faltas_pct, 1)
         })
+    prev_anchor = (week_start - timedelta(days=1)).strftime('%Y-%m-%d')
+    next_anchor = (week_end + timedelta(days=1)).strftime('%Y-%m-%d')
 
     return render_template(
         'admin_weekly.html',
         week_start=week_start,
         week_end=week_end,
-        top_rows=top_rows[:50],   # mostra os 50 com mais faltas
-        per_meal_rows=per_meal_rows
+        top_rows=top_rows[:50],
+        per_meal_rows=per_meal_rows,
+        prev_anchor=prev_anchor,
+        next_anchor=next_anchor,
     )
