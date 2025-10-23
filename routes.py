@@ -375,7 +375,7 @@ def admin_weekly():
     top_rows = []
     for uid, cnt in top_absentees:
         u = users_map.get(uid)
-        display = getattr(u, "name", None) or getattr(u, "full_name", None) or f"Nº OB {uid}"
+        display = getattr(u, "name", None) or getattr(u, "full_name", None) or f"{uid}"
         top_rows.append({"user_id": uid, "display": display, "absences": cnt})
 
     # Converter totais por refeição para lista ordenada pelo id

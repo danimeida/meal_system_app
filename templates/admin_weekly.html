@@ -2,8 +2,8 @@
 {% block content %}
 <h3 class="mb-3">Faltas Semanais</h3>
 <p class="text-muted">
-  Semana: <strong>{{ week_start.strftime('%d/%m/%Y') }} (SÁB)</strong> a
-  <strong>{{ week_end.strftime('%d/%m/%Y') }} (SEX)</strong>
+  Semana: <strong>{{ week_start.strftime('%d/%m/%Y') }}</strong> (SÁB) a
+  <strong>{{ week_end.strftime('%d/%m/%Y') }}</strong> (SEX)
 </p>
 
 <div class="d-flex gap-2 mb-3">
@@ -21,16 +21,16 @@
         <table class="table table-sm mb-0">
           <thead>
             <tr>
-              <th>#</th>
+              <th>Classificação</th>
               <th>Nº OB</th>
-              <th class="text-end">Faltas</th>
+              <th>Faltas</th>
             </tr>
           </thead>
           <tbody>
             {% if top_rows %}
               {% for row in top_rows %}
               <tr>
-                <td class="text-muted">{{ loop.index }}</td>
+                <td>{{ loop.index }}</td>
                 <td>{{ row.display }} </td>
                 <td>{{ row.absences }}</td>
               </tr>
