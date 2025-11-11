@@ -41,7 +41,7 @@ def in_window(meal_time, now=None):
     end   = datetime.combine(now.date(), meal_time, tzinfo=APP_TZ) + WINDOW_AFTER
     return start <= now <= end
 
-def is_locked(day, meal_time, now=None, hours=2):
+def is_locked(day, meal_time, now=None, hours=48):
     """True se (day + meal_time) estiver a menos de `hours` horas (bloqueado)."""
     if now is None:
         now = datetime.now(APP_TZ)
