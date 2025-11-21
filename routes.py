@@ -18,7 +18,7 @@ WEEKDAYS_PT = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM']
 
 # Janela de validação do quiosque
 WINDOW_BEFORE = timedelta(minutes=60)
-WINDOW_AFTER  = timedelta(minutes=140)
+WINDOW_AFTER  = timedelta(minutes=180)
 
 # definir a semana para depois utilziar para as estatisticas semanais
 def week_range_sat_to_fri(anchor: date | None = None):
